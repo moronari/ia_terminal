@@ -1,0 +1,16 @@
+# Ignorar ambiente virtual
+venv/
+
+# Ignorar qualquer arquivo de configuração ou chave de API local
+.env
+*.env
+*.key
+*.pem
+
+# Ignorar caches do Python
+__pycache__/
+*.pyc
+
+# Ignorar arquivos temporários
+*.tmp
+*.log
