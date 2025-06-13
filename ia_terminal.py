@@ -2,18 +2,31 @@ import os
 import google.generativeai as genai
 import subprocess
 
+# --- Constantes de Cores ANSI ---
+class Colors:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    
+    BLACK = "\033[30m"
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
+
 # Configura a chave da API do Gemini
 # A chave é lida da variável de ambiente GOOGLE_API_KEY
 genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
-
 def chat_and_execute_command(prompt):
     """
     Envia um prompt para o modelo Gemini e, se o Gemini sugerir um comando,
     pergunta ao usuário se deve executá-lo.
     """
     if not os.environ.get("GOOGLE_API_KEY"):
-        print("Erro: A variável de ambiente GOOGLE_API_KEY não está configurada.")
-        print("Por favor, execute: export GOOGLE_API_KEY='SUA_CHAVE_DE_API_AQUI'")
+        print(f"{Colors.RED}Erro: A variável de ambiente GOOGLE_API_KEY não está configurada.{Colors.RESET}")
+        print(f"{Colors.YELLOW}Por favor, execute: export GOOGLE_API_KEY='SUA_CHAVE_DE_API_AQUI'{Colors.RESET}")
         return
 
     try:
@@ -46,45 +59,50 @@ Usuário: {prompt}
         # Tenta identificar se o Gemini sugeriu um comando pela linha "Comando:"
         if gemini_text.startswith("Comando:"):
             command_to_execute = gemini_text.replace("Comando:", "").strip()
-            print(f"Gemini sugeriu o comando: `{command_to_execute}`")
+            print(f"{Colors.GREEN}Gemini sugeriu o comando: {Colors.YELLOW}{Colors.BOLD}`{command_to_execute}`{Colors.RESET}")
             
-            confirm = input("Deseja executar este comando? (s/n): ").lower()
+            confirm_prompt = f"{Colors.MAGENTA}Deseja executar este comando? (s/n): {Colors.RESET}"
+            confirm = input(confirm_prompt).lower()
+
             if confirm == 's':
-                print(f"Executando: {command_to_execute}")
+                print(f"{Colors.CYAN}Executando: {Colors.YELLOW}{command_to_execute}{Colors.RESET}")
                 try:
                     # Usar subprocess.run é mais seguro que os.system
                     # shell=True permite a execução de comandos complexos com pipes e redirecionamentos
                     # mas aumenta o risco se a entrada não for confiável. Use com cautela.
                     result = subprocess.run(command_to_execute, shell=True, capture_output=True, text=True, check=True)
-                    print("\nSaída do comando:")
+                    print(f"\n{Colors.BOLD}Saída do comando:{Colors.RESET}")
                     print(result.stdout)
                     if result.stderr:
-                        print("Erros (stderr):")
+                        print(f"{Colors.RED}{Colors.BOLD}Erros (stderr):{Colors.RESET}")
                         print(result.stderr)
                 except subprocess.CalledProcessError as e:
-                    print(f"Erro ao executar o comando (código de saída {e.returncode}):")
-                    print(f"Saída (stdout): {e.stdout}")
-                    print(f"Erros (stderr): {e.stderr}")
+                    print(f"{Colors.RED}Erro ao executar o comando (código de saída {e.returncode}):{Colors.RESET}")
+                    if e.stdout:
+                        print(f"{Colors.BOLD}Saída (stdout):{Colors.RESET}\n{e.stdout}")
+                    if e.stderr:
+                        print(f"{Colors.RED}{Colors.BOLD}Erros (stderr):{Colors.RESET}\n{e.stderr}")
                 except FileNotFoundError:
-                    print(f"Erro: O comando '{command_to_execute.split()[0]}' não foi encontrado.")
+                    print(f"{Colors.RED}Erro: O comando '{command_to_execute.split()[0]}' não foi encontrado.{Colors.RESET}")
             else:
-                print("Comando não executado.")
+                print(f"{Colors.YELLOW}Comando não executado.{Colors.RESET}")
         else:
             # Se o Gemini não sugeriu um comando, imprime a resposta normal
-            print(f"Gemini: {gemini_text}")
+            print(f"{Colors.GREEN}Gemini: {gemini_text}{Colors.RESET}")
         
     except Exception as e:
-        print(f"Ocorreu um erro: {e}")
+        print(f"{Colors.RED}Ocorreu um erro inesperado: {e}{Colors.RESET}")
 
 if __name__ == "__main__":
-    print("Bem-vindo ao Gemini Terminal Assistant!")
-    print("Digite 'sair' para encerrar a conversa.")
-    print("Experimente perguntar: 'Como eu listo os arquivos na pasta atual?'")
+    print(f"{Colors.CYAN}{Colors.BOLD}Bem-vindo ao Gemini Terminal Assistant!{Colors.RESET}")
+    print(f"{Colors.CYAN}Digite '{Colors.RED}sair{Colors.CYAN}' para encerrar a conversa.{Colors.RESET}")
+    print(f"{Colors.CYAN}Experimente perguntar: '{Colors.GREEN}Como eu listo os arquivos na pasta atual?{Colors.CYAN}'{Colors.RESET}")
+    print("-" * 50)
 
     while True:
-        user_input = input("Você: ")
+        user_input = input(f"{Colors.BLUE}{Colors.BOLD}Você: {Colors.RESET}")
         if user_input.lower() == 'sair':
-            print("Encerrando o assistente. Até mais!")
+            print(f"{Colors.CYAN}Encerrando o assistente. Até mais!{Colors.RESET}")
             break
         
         chat_and_execute_command(user_input)
