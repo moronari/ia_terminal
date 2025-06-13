@@ -16,18 +16,26 @@ class Colors:
     CYAN = "\033[36m"
     WHITE = "\033[37m"
 
+# --- Configuração da API ---
 # Configura a chave da API do Gemini
 # A chave é lida da variável de ambiente GOOGLE_API_KEY
-genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+api_key_env = os.environ.get("GOOGLE_API_KEY")
+
+if api_key_env:
+    genai.configure(api_key=api_key_env)
+else:
+    # A mensagem de erro será impressa no bloco __main__ ou na função se tentarem usar.
+    pass # genai.configure não será chamado se a chave não existir
+
 def chat_and_execute_command(prompt):
     """
     Envia um prompt para o modelo Gemini e, se o Gemini sugerir um comando,
     pergunta ao usuário se deve executá-lo.
     """
-    if not os.environ.get("GOOGLE_API_KEY"):
+    if not api_key_env: # Verifica se a chave foi carregada na inicialização do script
         print(f"{Colors.RED}Erro: A variável de ambiente GOOGLE_API_KEY não está configurada.{Colors.RESET}")
         print(f"{Colors.YELLOW}Por favor, execute: export GOOGLE_API_KEY='SUA_CHAVE_DE_API_AQUI'{Colors.RESET}")
-        return
+        return # Impede a continuação se a chave não estiver configurada
 
     try:
         model = genai.GenerativeModel('gemini-2.0-flash-lite')
@@ -94,6 +102,12 @@ Usuário: {prompt}
         print(f"{Colors.RED}Ocorreu um erro inesperado: {e}{Colors.RESET}")
 
 if __name__ == "__main__":
+    if not api_key_env:
+        # Esta mensagem será mostrada se o script for executado diretamente sem a chave API.
+        print(f"{Colors.RED}Erro crítico: A variável de ambiente GOOGLE_API_KEY não está configurada.{Colors.RESET}")
+        print(f"{Colors.YELLOW}Por favor, defina-a antes de executar o script.{Colors.RESET}")
+        exit(1) # Encerra o script se a chave não estiver disponível.
+
     print(f"{Colors.CYAN}{Colors.BOLD}Bem-vindo ao Gemini Terminal Assistant!{Colors.RESET}")
     print(f"{Colors.CYAN}Digite '{Colors.RED}sair{Colors.CYAN}' para encerrar a conversa.{Colors.RESET}")
     print(f"{Colors.CYAN}Experimente perguntar: '{Colors.GREEN}Como eu listo os arquivos na pasta atual?{Colors.CYAN}'{Colors.RESET}")
