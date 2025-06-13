@@ -24,8 +24,8 @@ A execução de comandos gerados por um modelo de IA diretamente no seu sistema 
 
 1.  **Clone o repositório (ou baixe os arquivos):**
     ```bash
-    git clone [https://github.com/SEU_USUARIO/gemini-terminal-assistant.git](https://github.com/SEU_USUARIO/gemini-terminal-assistant.git)
-    cd gemini-terminal-assistant
+    git clone [https://github.com/moronari/ia_terminal.git](https://github.com/moronari/ia_terminal.git)
+    cd ia_terminal
     ```
 2.  **Crie e ative um ambiente virtual:**
     ```bash
