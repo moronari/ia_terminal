@@ -1,6 +1,7 @@
 import os
 import google.generativeai as genai
 import subprocess
+import platform
 
 # --- Constantes de Cores ANSI ---
 class Colors:
@@ -38,29 +39,45 @@ def chat_and_execute_command(prompt):
         return # Impede a continuação se a chave não estiver configurada
 
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash-lite')
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         
-        # Este é um "prompt de sistema" para guiar o comportamento do Gemini
-        # Ele tenta direcionar o Gemini para sugerir comandos quando apropriado
-        full_prompt = f"""
-Você é um assistente de terminal útil. Quando um usuário pede para realizar uma ação no terminal,
-você deve sugerir o comando exato do Linux para realizar essa ação.
-**Não execute o comando, apenas o sugira. A sugestão deve começar com 'Comando:'**
-Se eu te der um comando, você pode explicá-lo.
-Se a pergunta não for sobre comandos do terminal, responda normalmente.
+        # Detecta o sistema operacional para fornecer comandos mais precisos.
+        os_name = platform.system()
 
-Exemplos:
-Usuário: Listar arquivos ocultos.
-Comando: ls -a
+        # Prompt de sistema aprimorado para focar o modelo no seu papel de especialista.
+        system_instruction = f"""
+        Você é um especialista em linha de comando para o sistema operacional '{os_name}'.
+        Sua única tarefa é responder com o comando exato para a solicitação do usuário ou explicar um comando.
 
-Usuário: Criar um diretório chamado "teste".
-Comando: mkdir teste
+        REGRAS:
+        1.  **SEMPRE** inicie sua resposta com 'Comando:' seguido do comando exato.
+        2.  **NÃO** adicione explicações, saudações ou qualquer texto extra, a menos que o usuário peça explicitamente uma explicação.
+        3.  Se a solicitação for para explicar um comando, explique-o de forma concisa, mas ainda comece com 'Comando:'.
+        4.  Toa pergunta deve ser interpretada no contexto do sistema operacional '{os_name}'.
+        5.  Entenda que o seu objetivo é enviar os melhores comandos baseado na solicitação do prompt.
+        6.  O comando deve ser o mais direto e idiomático possível para '{os_name}'.
 
-Usuário: Remover um arquivo chamado 'temp.txt'.
-Comando: rm temp.txt
+        Exemplos de Solicitação de Comando:
+        Usuário: Listar arquivos ocultos.
+        Comando: ls -a
 
-Usuário: {prompt}
-"""
+        Usuário: Criar um diretório chamado "teste".
+        Comando: mkdir teste
+
+        Usuário: Remover um arquivo chamado 'temp.txt'.
+        Comando: rm temp.txt
+
+        Usuário: Listar todos os arquivos, incluindo os ocultos, em formato longo.
+        Comando: ls -la
+
+        Usuário: criar um novo diretorio chamado 'documentos'
+        Comando: mkdir documentos
+
+        Exemplo de Explicação de Comando:
+        Usuário: o que o comando 'grep -r "TODO" .' faz?
+        Comando: O comando `grep -r "TODO" .` procura recursivamente (-r) pela string "TODO" em todos os arquivos do diretório atual (.).
+        """
+        full_prompt = f"{system_instruction}\nUsuário: {prompt}\n"
         response = model.generate_content(full_prompt)
         gemini_text = response.text.strip()
 
@@ -69,31 +86,41 @@ Usuário: {prompt}
             command_to_execute = gemini_text.replace("Comando:", "").strip()
             print(f"{Colors.GREEN}Gemini sugeriu o comando: {Colors.YELLOW}{Colors.BOLD}`{command_to_execute}`{Colors.RESET}")
             
-            confirm_prompt = f"{Colors.MAGENTA}Deseja executar este comando? (s/n): {Colors.RESET}"
-            confirm = input(confirm_prompt).lower()
+            while True:
+                confirm_prompt = f"{Colors.MAGENTA}Deseja executar o comando? (s/n/? para ajuda): {Colors.RESET}"
+                confirm = input(confirm_prompt).lower()
 
-            if confirm == 's':
-                print(f"{Colors.CYAN}Executando: {Colors.YELLOW}{command_to_execute}{Colors.RESET}")
-                try:
-                    # Usar subprocess.run é mais seguro que os.system
-                    # shell=True permite a execução de comandos complexos com pipes e redirecionamentos
-                    # mas aumenta o risco se a entrada não for confiável. Use com cautela.
-                    result = subprocess.run(command_to_execute, shell=True, capture_output=True, text=True, check=True)
-                    print(f"\n{Colors.BOLD}Saída do comando:{Colors.RESET}")
-                    print(result.stdout)
-                    if result.stderr:
-                        print(f"{Colors.RED}{Colors.BOLD}Erros (stderr):{Colors.RESET}")
-                        print(result.stderr)
-                except subprocess.CalledProcessError as e:
-                    print(f"{Colors.RED}Erro ao executar o comando (código de saída {e.returncode}):{Colors.RESET}")
-                    if e.stdout:
-                        print(f"{Colors.BOLD}Saída (stdout):{Colors.RESET}\n{e.stdout}")
-                    if e.stderr:
-                        print(f"{Colors.RED}{Colors.BOLD}Erros (stderr):{Colors.RESET}\n{e.stderr}")
-                except FileNotFoundError:
-                    print(f"{Colors.RED}Erro: O comando '{command_to_execute.split()[0]}' não foi encontrado.{Colors.RESET}")
-            else:
-                print(f"{Colors.YELLOW}Comando não executado.{Colors.RESET}")
+                if confirm == 's':
+                    print(f"{Colors.CYAN}Executando: {Colors.YELLOW}{command_to_execute}{Colors.RESET}")
+                    try:
+                        # Removido 'capture_output=True' e 'text=True'.
+                        # Agora, a saída do comando será exibida diretamente no terminal em tempo real.
+                        print(f"\n{Colors.CYAN}--- Início da Saída do Comando ---{Colors.RESET}")
+                        subprocess.run(command_to_execute, shell=True, check=True)
+                        print(f"{Colors.CYAN}--- Fim da Saída do Comando ---{Colors.RESET}")
+                    except subprocess.CalledProcessError as e:
+                        # A mensagem de erro do próprio comando já foi exibida no terminal.
+                        # Apenas informamos que o comando falhou.
+                        print(f"\n{Colors.RED}Erro: O comando terminou com o código de saída {e.returncode}.{Colors.RESET}")
+                    except FileNotFoundError:
+                        print(f"{Colors.RED}Erro: O comando '{command_to_execute.split()[0]}' não foi encontrado.{Colors.RESET}")
+                    break # Sai do loop de confirmação
+                elif confirm == 'n':
+                    print(f"{Colors.YELLOW}Comando não executado.{Colors.RESET}")
+                    break # Sai do loop de confirmação
+                elif confirm == '?':
+                    print(f"{Colors.CYAN}Solicitando explicação para o Gemini...{Colors.RESET}")
+                    explanation_prompt = f"""Você é um instrutor especialista em linha de comando para o sistema operacional '{os_name}'.
+Sua tarefa é fornecer uma explicação detalhada, clara e didática para o seguinte comando.
+Explique o que cada parte do comando (programa, flags, argumentos) faz. Não execute o comando. Apenas explique.
+Comando para explicar: `{command_to_execute}`"""
+                    explanation_response = model.generate_content(explanation_prompt)
+                    print(f"\n{Colors.CYAN}{Colors.BOLD}--- Explicação do Comando ---{Colors.RESET}")
+                    print(explanation_response.text.strip())
+                    print(f"{Colors.CYAN}{Colors.BOLD}-----------------------------{Colors.RESET}\n")
+                else:
+                    print(f"{Colors.RED}Opção inválida. Comando não executado.{Colors.RESET}")
+                    break # Sai do loop de confirmação
         else:
             # Se o Gemini não sugeriu um comando, imprime a resposta normal
             print(f"{Colors.GREEN}Gemini: {gemini_text}{Colors.RESET}")
